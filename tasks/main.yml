@@ -1,0 +1,71 @@
+---
+# tasks file for roles/ssi.prometheus_podman
+# yamllint disable rule:line-length
+
+- name: set variable states when container state is running
+  tags: facts
+  set_fact:
+    state: present
+  when: container_state == "running"
+
+- name: set variable states when container state is not running
+  tags: facts
+  set_fact:
+    state: absent
+  when: container_state != "running"
+
+- name: ensure container files mount point on host
+  tags: mount
+  file:
+    path: "{{ exported_container_volumes_basedir }}/{{ item }}"
+    owner: "{{ container_dir_owner }}"
+    group: "{{ container_dir_group }}"
+    state: directory
+    mode: "0770"
+    recurse: false
+  loop:
+    - "{{ container_dir_lib }}"
+    - "{{ container_dir_etc }}"
+
+- name: ensure prometheus prometheus.yml
+  copy:
+    src: prometheus.yml
+    dest: "{{ exported_container_volumes_basedir }}/{{ container_dir_etc }}/prometheus.yml"
+    owner: "{{ container_dir_owner }}"
+    group: "{{ container_dir_group }}"
+    mode: "0440"
+  when: state == "present"
+
+- name: ensure prometheus file_sd_configs directory
+  file:
+    path: "{{ exported_container_volumes_basedir }}/{{ container_dir_etc }}/file_sd_configs"
+    owner: "{{ container_dir_owner }}"
+    group: "{{ container_dir_group }}"
+    mode: "0750"
+    state: directory
+  when: state == "present"
+
+- name: ensure prometheus prometheus_targets.yml
+  template:
+    src: prometheus_targets.yml.j2
+    dest: "{{ exported_container_volumes_basedir }}/{{ container_dir_etc }}/file_sd_configs/prometheus_targets.yml"
+    owner: "{{ container_dir_owner }}"
+    group: "{{ container_dir_group }}"
+    mode: "0440"
+  when: state == "present"
+
+- name: ensure container state
+  tags: container
+  include_role:
+    name: ssi.podman_container_systemd
+
+- name: Wait for prometheus container to come up
+  uri:
+    url: "{{ prometheus_public_url }}"
+    status_code: 200
+  register: result
+  until: result.status == 200
+  retries: 90
+  delay: 1
+  when: container_state == "running"
+

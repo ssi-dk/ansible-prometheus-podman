@@ -1,0 +1,28 @@
+---
+# defaults file for roles/ssi.prometheus_podman
+# yamllint disable rule:line-length
+
+# Default to the podman hosts default ipv4 address
+prometheus_public_url: http://{{ ansible_facts['default_ipv4']['address'] }}:9090
+container_state: running
+container_name: prometheus
+container_run_as_user: prometheus
+container_run_as_group: prometheus
+container_image_list:
+  - docker.io/prom/prometheus
+exported_container_volumes_basedir: /var/lib/prometheus
+container_dir_lib: prometheus-data
+container_dir_etc: prometheus-etc
+# Container normally runs as uid 65534 and gid 65534
+container_dir_owner: 65534
+container_dir_group: 65534
+container_fqdn: "prometheus.localhost"
+container_run_args: >-
+  --rm
+  -p 9090:9090/tcp
+  -v "{{ exported_container_volumes_basedir }}/{{ container_dir_etc }}/:/etc/prometheus:Z"
+  -v "{{ exported_container_volumes_basedir }}/{{ container_dir_lib }}:/prometheus:Z"
+  --hostname "{{ ansible_facts['default_ipv4']['address'] }}"
+  --label "io.containers.autoupdate=image"
+container_firewall_ports:
+  - 9090/tcp
