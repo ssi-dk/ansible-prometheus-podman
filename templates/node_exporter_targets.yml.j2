@@ -1,0 +1,9 @@
+---
+- targets:
+{% for host in groups['node_exporter'] %}
+    {% if host in hostvars and 'ansible_default_ipv4' in hostvars[host] %}
+    - {{ hostvars[host]['ansible_default_ipv4']['address'] }}:9100
+    {% endif %}
+{% endfor %}
+  labels:
+    job: {{ node_exporter_job_label | default('node_exporter') }}
